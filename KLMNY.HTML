@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>كلمني</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@500;700;900&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Tajawal', sans-serif;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .active-card:active {
+      transform: scale(0.95);
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 flex flex-col min-h-screen">
+
+  <!-- شاشة تفعيل الصوت الأولية للهواتف المحمولة -->
+  <div id="unlockModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl border-4 border-emerald-500">
+      <div class="text-6xl mb-4">🔊</div>
+      <h2 class="text-2xl font-black text-slate-800 mb-2">تفعيل الصوت</h2>
+      <p class="text-slate-600 mb-6 text-sm">تتطلب متصفحات الهواتف المحمولة نقرة أولى لتفعيل نظام النطق والتواصل.</p>
+      <button id="btnUnlock" class="w-full py-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xl rounded-2xl shadow-lg transition-transform">
+        ابدأ التطبيق الآن 🚀
+      </button>
+    </div>
+  </div>
+
+  <!-- شريط التشخيص المباشر لمعرفة حالة الصوت -->
+  <header class="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40 px-4 py-2">
+    <div class="flex items-center justify-between mb-1">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl">🗣️</span>
+        <h1 class="text-xl font-black text-slate-800">كَلِّمْنِي (AAC)</h1>
+      </div>
+      <button onclick="testSpeech()" class="text-xs bg-slate-200 hover:bg-slate-300 px-3 py-1.5 rounded-lg font-bold">
+        🔊 تجربة الصوت
+      </button>
+    </div>
+    <div id="statusBar" class="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs py-1 px-3 rounded-lg text-center font-bold">
+      جاهز للنطق... اضغط على أي بطاقة
+    </div>
+  </header>
+
+  <!-- شريط الجملة المركبة -->
+  <section class="bg-white px-3 py-2 border-b border-slate-200 shadow-inner flex items-center gap-2 min-h-[58px]">
+    <div id="sentenceDisplay" class="flex-1 flex gap-2 overflow-x-auto py-1 items-center">
+      <span class="text-slate-400 text-sm italic">اضغط على البطاقات لتكوين جملة هنا...</span>
+    </div>
+    <button onclick="speakSentence()" class="bg-emerald-600 active:scale-90 text-white p-2.5 rounded-xl font-bold text-sm shadow flex items-center gap-1">
+      <span>انطق</span> 🔊
+    </button>
+    <button onclick="clearSentence()" class="bg-rose-100 text-rose-700 active:scale-90 p-2.5 rounded-xl font-bold text-sm">
+      مسح
+    </button>
+  </section>
+
+  <!-- فئات التصنيف -->
+  <nav class="flex gap-2 p-3 overflow-x-auto bg-slate-50 border-b border-slate-200">
+    <button onclick="filterCards('all')" class="cat-btn bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap shadow-sm">الكل</button>
+    <button onclick="filterCards('needs')" class="cat-btn bg-white text-rose-700 border border-rose-200 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap">احتياجات أساسية</button>
+    <button onclick="filterCards('feelings')" class="cat-btn bg-white text-amber-700 border border-amber-200 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap">مشاعر</button>
+    <button onclick="filterCards('activities')" class="cat-btn bg-white text-sky-700 border border-sky-200 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap">أنشطة</button>
+    <button onclick="filterCards('social')" class="cat-btn bg-white text-purple-700 border border-purple-200 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap">ردود وتواصل</button>
+  </nav>
+
+  <!-- شبكة البطاقات (30 بطاقة بالفصحى) -->
+  <main class="flex-1 p-3 pb-28">
+    <div id="gridCards" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"></div>
+  </main>
+
+  <!-- شريط الكتابة السريعة والنطق المباشر في الأسفل -->
+  <footer class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-2.5 shadow-2xl z-30">
+    <div class="flex gap-2 max-w-4xl mx-auto">
+      <input type="text" id="customInput" placeholder="اكتب هنا ما تريد قوله..." 
+             class="flex-1 border-2 border-slate-300 rounded-2xl px-4 py-2.5 text-base font-bold focus:outline-none focus:border-indigo-600">
+      <button onclick="speakCustomInput()" class="bg-indigo-600 active:scale-95 text-white px-5 py-2.5 rounded-2xl font-black text-base shadow-md flex items-center gap-1">
+        <span>انطق</span> 🔊
+      </button>
+      <button onclick="clearInput()" class="bg-slate-200 text-slate-700 px-3 py-2.5 rounded-2xl font-bold text-sm">
+        مسح
+      </button>
+    </div>
+  </footer>
+
+  <script>
+    // قائمة الـ 30 بطاقة الأساسية باللغة العربية الفصحى
+    const cards = [
+      { id: 1, text: "أريد أن أشرب", emoji: "💧", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
+      { id: 2, text: "أريد أن آكل", emoji: "🍽️", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
+      { id: 3, text: "أريد أن أنام", emoji: "🛏️", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
+      { id: 4, text: "أريد الذهاب إلى دورة المياه", emoji: "🚽", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
+      { id: 5, text: "أنا متعب", emoji: "🥱", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
+      { id: 6, text: "أشعر بألم", emoji: "🩹", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
+      { id: 7, text: "أريد غسل يديّ", emoji: "🧼", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
+      { id: 8, text: "أريد تبديل ملابسي", emoji: "👕", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
+
+      { id: 9, text: "أنا سعيد", emoji: "😊", cat: "feelings", bg: "bg-amber-50 border-amber-300 text-amber-900" },
+      { id: 10, text: "أنا حزين", emoji: "😢", cat: "feelings", bg: "bg-amber-50 border-amber-300 text-amber-900" },
+      { id: 11, text: "أنا خائف", emoji: "😨", cat: "feelings", bg: "bg-amber-50 border-amber-300 text-amber-900" },
+      { id: 12, text: "أنا غاضب", emoji: "😠", cat: "feelings", bg: "bg-amber-50 border-amber-300 text-amber-900" },
+      { id: 13, text: "أنا أحبك", emoji: "❤️", cat: "feelings", bg: "bg-amber-50 border-amber-300 text-amber-900" },
+      { id: 14, text: "أشعر بالملل", emoji: "😐", cat: "feelings", bg: "bg-amber-50 border-amber-300 text-amber-900" },
+
+      { id: 15, text: "أريد أن ألعب", emoji: "🧸", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
+      { id: 16, text: "أريد مشاهدة التلفاز", emoji: "📺", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
+      { id: 17, text: "أريد أن أرسم", emoji: "🎨", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
+      { id: 18, text: "أريد الاستماع إلى الموسيقى", emoji: "🎵", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
+      { id: 19, text: "أريد الخروج", emoji: "🚪", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
+      { id: 20, text: "أريد الذهاب إلى الحديقة", emoji: "🌳", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
+      { id: 21, text: "أريد عناقاً", emoji: "🫂", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
+
+      { id: 22, text: "نعم", emoji: "👍", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
+      { id: 23, text: "لا", emoji: "👎", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
+      { id: 24, text: "ساعدني من فضلك", emoji: "🆘", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
+      { id: 25, text: "انتظر", emoji: "✋", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
+      { id: 26, text: "يكفي هذا", emoji: "🛑", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
+      { id: 27, text: "مرة أخرى من فضلك", emoji: "🔁", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
+      { id: 28, text: "شكراً لك", emoji: "🙏", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
+      { id: 29, text: "أريد أمي", emoji: "👩", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
+      { id: 30, text: "أريد أبي", emoji: "👨", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" }
+    ];
+
+    let sentenceList = [];
+    let currentAudioElement = null;
+    window.currentUtterance = null;
+
+    // تحديث شريط الحالة المرئي
+    function setStatus(msg, type = 'normal') {
+      const bar = document.getElementById('statusBar');
+      bar.textContent = msg;
+      bar.className = 'text-xs py-1 px-3 rounded-lg text-center font-bold transition-colors ';
+      if (type === 'speaking') bar.className += 'bg-amber-100 border border-amber-300 text-amber-900 animate-pulse';
+      else if (type === 'success') bar.className += 'bg-emerald-100 border border-emerald-300 text-emerald-900';
+      else if (type === 'error') bar.className += 'bg-rose-100 border border-rose-300 text-rose-900';
+      else bar.className += 'bg-slate-100 border border-slate-200 text-slate-700';
+    }
+
+    // تفعيل الصوت في متصفح الهاتف
+    document.getElementById('btnUnlock').addEventListener('click', () => {
+      document.getElementById('unlockModal').classList.add('hidden');
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.resume();
+      }
+      speak("مرحباً بك في تطبيق كَلِّمْنِي");
+    });
+
+    // المحرك الصوتي الذكي
+    function speak(text) {
+      if (!text || !text.trim()) return;
+
+      if (currentAudioElement) {
+        currentAudioElement.pause();
+        currentAudioElement.currentTime = 0;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.resume();
+      }
+
+      setStatus(`جارٍ نطق: "${text}"...`, 'speaking');
+
+      let arabicVoice = null;
+      if ('speechSynthesis' in window) {
+        const voices = window.speechSynthesis.getVoices();
+        arabicVoice = voices.find(v => v.lang.startsWith('ar'));
+      }
+
+      if (arabicVoice) {
+        try {
+          const utter = new SpeechSynthesisUtterance(text);
+          utter.voice = arabicVoice;
+          utter.lang = 'ar-SA';
+          utter.rate = 0.9;
+          window.currentUtterance = utter;
+
+          utter.onstart = () => setStatus(`النطق عبر صوت الجهاز 🔊: "${text}"`, 'speaking');
+          utter.onend = () => setStatus(`تم النطق بنجاح ✅`, 'success');
+          utter.onerror = () => fallbackAudioStream(text);
+
+          window.speechSynthesis.speak(utter);
+          return;
+        } catch (e) {
+          console.warn("تعذر استخدام محرك الجهاز، جارٍ الانتقال للصوت البديل...", e);
+        }
+      }
+
+      fallbackAudioStream(text);
+    }
+
+    // الصوت البديل السحابي
+    function fallbackAudioStream(text) {
+      setStatus(`جارٍ النطق عبر الصوت السحابي 🌐: "${text}"`, 'speaking');
+      
+      const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ar&q=${encodeURIComponent(text)}`;
+      currentAudioElement = new Audio(audioUrl);
+
+      currentAudioElement.onended = () => {
+        setStatus(`تم النطق بنجاح ✅`, 'success');
+      };
+
+      currentAudioElement.onerror = () => {
+        setStatus(`تعذر النطق. يرجى التأكد من الاتصال بالإنترنت أو استخدام متصفح Chrome.`, 'error');
+      };
+
+      currentAudioElement.play().catch(err => {
+        console.error("Playback error:", err);
+        setStatus(`يرجى النقر على الشاشة أولاً لتفعيل الصوت.`, 'error');
+      });
+    }
+
+    // بناء شبكة البطاقات
+    function renderCards(filter = 'all') {
+      const container = document.getElementById('gridCards');
+      container.innerHTML = '';
+
+      const filtered = filter === 'all' ? cards : cards.filter(c => c.cat === filter);
+
+      filtered.forEach(item => {
+        const btn = document.createElement('button');
+        btn.className = `active-card flex flex-col items-center justify-center p-4 rounded-3xl border-3 shadow-md transition-all duration-150 min-h-[140px] ${item.bg}`;
+        btn.innerHTML = `
+          <span class="text-5xl mb-2 filter drop-shadow-sm pointer-events-none">${item.emoji}</span>
+          <span class="font-black text-lg text-center leading-tight pointer-events-none">${item.text}</span>
+        `;
+        btn.onclick = () => {
+          speak(item.text);
+          addToSentence(item);
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    // إدارة الجملة المركبة
+    function addToSentence(card) {
+      sentenceList.push(card);
+      updateSentenceUI();
+    }
+
+    function updateSentenceUI() {
+      const display = document.getElementById('sentenceDisplay');
+      if (sentenceList.length === 0) {
+        display.innerHTML = '<span class="text-slate-400 text-sm italic">اضغط على البطاقات لتكوين جملة هنا...</span>';
+        return;
+      }
+      display.innerHTML = sentenceList.map(c => `
+        <span class="bg-indigo-50 border border-indigo-200 text-indigo-900 px-3 py-1.5 rounded-xl font-black text-sm whitespace-nowrap shadow-sm flex items-center gap-1">
+          <span>${c.emoji}</span> ${c.text}
+        </span>
+      `).join('');
+    }
+
+    function speakSentence() {
+      if (sentenceList.length === 0) return;
+      const fullText = sentenceList.map(c => c.text).join(' ، ');
+      speak(fullText);
+    }
+
+    function clearSentence() {
+      sentenceList = [];
+      updateSentenceUI();
+    }
+
+    // إدخال النص يدوياً
+    function speakCustomInput() {
+      const input = document.getElementById('customInput');
+      const val = input.value.trim();
+      if (val) speak(val);
+    }
+
+    function clearInput() {
+      document.getElementById('customInput').value = '';
+    }
+
+    document.getElementById('customInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') speakCustomInput();
+    });
+
+    // تبديل الفئات
+    function filterCards(cat) {
+      document.querySelectorAll('.cat-btn').forEach(btn => {
+        btn.classList.remove('bg-slate-800', 'text-white');
+        btn.classList.add('bg-white');
+      });
+      event.target.classList.remove('bg-white');
+      event.target.classList.add('bg-slate-800', 'text-white');
+      renderCards(cat);
+    }
+
+    function testSpeech() {
+      speak("نظام الصوت يعمل بنجاح، يمكنك استخدام التطبيق الآن");
+    }
+
+    renderCards();
+
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+    }
+  </script>
+</body>
+</html>
