@@ -257,11 +257,39 @@
       `).join('');
     }
 
-    function speakSentence() {
-      if (sentenceList.length === 0) return;
-      const fullText = sentenceList.map(c => c.text).join(' ، ');
-      speak(fullText);
-    }
+   function speak(text) {
+  if (!text || !text.trim()) return;
+
+  // إيقاف أي قراءة سابقة وتفريغ الذاكرة
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+  }
+
+  setStatus(`جارٍ نطق: "${text}"...`, 'speaking');
+
+  try {
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'ar-SA'; // نطق عربي قياسي
+    utter.rate = 0.85;     // سرعة مناسبة وواضحة
+
+    // محاولة اختيار أفضل صوت عربي متاح بالجهاز
+    const voices = window.speechSynthesis.getVoices();
+    const arabicVoice = voices.find(v => v.lang.startsWith('ar'));
+    if (arabicVoice) utter.voice = arabicVoice;
+
+    utter.onstart = () => setStatus(`ينطق الآن 🔊: "${text}"`, 'speaking');
+    utter.onend = () => setStatus(`تم النطق بنجاح ✅`, 'success');
+    utter.onerror = (e) => {
+      console.error("Speech error:", e);
+      setStatus(`حدث خطأ أثناء النطق، تأكد من دعم الصوت بالجهاز.`, 'error');
+    };
+
+    window.speechSynthesis.speak(utter);
+  } catch (err) {
+    console.error("System error:", err);
+    setStatus(`محرك النطق غير مدعوم في هذا المتصفح.`, 'error');
+  }
+}
 
     function clearSentence() {
       sentenceList = [];
