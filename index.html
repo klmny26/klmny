@@ -16,10 +16,21 @@
     .active-card:active {
       transform: scale(0.95);
     }
-    #customInput { user-select: text; }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 flex flex-col min-h-screen">
+
+  <!-- شاشة تفعيل الصوت الأولية للهواتف المحمولة -->
+  <div id="unlockModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl border-4 border-emerald-500">
+      <div class="text-6xl mb-4">🔊</div>
+      <h2 class="text-2xl font-black text-slate-800 mb-2">تفعيل الصوت</h2>
+      <p class="text-slate-600 mb-6 text-sm">تتطلب متصفحات الهواتف المحمولة نقرة أولى لتفعيل نظام النطق والتواصل.</p>
+      <button id="btnUnlock" class="w-full py-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xl rounded-2xl shadow-lg transition-transform">
+        ابدأ التطبيق الآن 🚀
+      </button>
+    </div>
+  </div>
 
   <!-- شريط التشخيص المباشر لمعرفة حالة الصوت -->
   <header class="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40 px-4 py-2">
@@ -35,7 +46,6 @@
     <div id="statusBar" class="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs py-1 px-3 rounded-lg text-center font-bold">
       جاهز للنطق... اضغط على أي بطاقة
     </div>
-    <div id="voiceInfo" class="text-[11px] text-slate-500 text-center mt-1 font-bold" dir="rtl"></div>
   </header>
 
   <!-- شريط الجملة المركبة -->
@@ -53,11 +63,11 @@
 
   <!-- فئات التصنيف -->
   <nav class="flex gap-2 p-3 overflow-x-auto bg-slate-50 border-b border-slate-200">
-    <button onclick="filterCards('all', this)" class="cat-btn bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap shadow-sm">الكل</button>
-    <button onclick="filterCards('needs', this)" class="cat-btn bg-white text-rose-700 border border-rose-200 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap">احتياجات أساسية</button>
-    <button onclick="filterCards('feelings', this)" class="cat-btn bg-white text-amber-700 border border-amber-200 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap">مشاعر</button>
-    <button onclick="filterCards('activities', this)" class="cat-btn bg-white text-sky-700 border border-sky-200 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap">أنشطة</button>
-    <button onclick="filterCards('social', this)" class="cat-btn bg-white text-purple-700 border border-purple-200 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap">ردود وتواصل</button>
+    <button onclick="filterCards('all')" class="cat-btn bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap shadow-sm">الكل</button>
+    <button onclick="filterCards('needs')" class="cat-btn bg-white text-rose-700 border border-rose-200 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap">احتياجات أساسية</button>
+    <button onclick="filterCards('feelings')" class="cat-btn bg-white text-amber-700 border border-amber-200 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap">مشاعر</button>
+    <button onclick="filterCards('activities')" class="cat-btn bg-white text-sky-700 border border-sky-200 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap">أنشطة</button>
+    <button onclick="filterCards('social')" class="cat-btn bg-white text-purple-700 border border-purple-200 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap">ردود وتواصل</button>
   </nav>
 
   <!-- شبكة البطاقات باللهجة المصرية -->
@@ -68,7 +78,7 @@
   <!-- شريط الكتابة السريعة والنطق المباشر في الأسفل -->
   <footer class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-2.5 shadow-2xl z-30">
     <div class="flex gap-2 max-w-4xl mx-auto">
-      <input type="text" id="customInput" placeholder="اكتب هنا اللي عاوز تقوله..."
+      <input type="text" id="customInput" placeholder="اكتب هنا اللي عاوز تقوله..." 
              class="flex-1 border-2 border-slate-300 rounded-2xl px-4 py-2.5 text-base font-bold focus:outline-none focus:border-indigo-600">
       <button onclick="speakCustomInput()" class="bg-indigo-600 active:scale-95 text-white px-5 py-2.5 rounded-2xl font-black text-base shadow-md flex items-center gap-1">
         <span>انطق</span> 🔊
@@ -80,63 +90,45 @@
   </footer>
 
   <script>
-    // text = النص المعروض على البطاقة | say = النص المشكّل اللي بيتبعت للمحرك الصوتي
+    // قائمة الـ 30 بطاقة باللهجة العامية المصرية الدارجة
     const cards = [
-      { id: 1, text: "عايز أشرب", say: "عَايِزْ أَشْرَبْ", emoji: "💧", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
-      { id: 2, text: "عايز آكل", say: "عَايِزْ آكُلْ", emoji: "🍽️", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
-      { id: 3, text: "عايز أنام", say: "عَايِزْ أَنَامْ", emoji: "🛏️", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
-      { id: 4, text: "عايز أروح الحمام", say: "عَايِزْ أَرُوحْ الحَمَّامْ", emoji: "🚽", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
-      { id: 5, text: "أنا تعبان", say: "أَنَا تَعْبَانْ", emoji: "🥱", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
-      { id: 6, text: "حاسس بوجع", say: "حَاسِسْ بِوَجَعْ", emoji: "🩹", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
-      { id: 7, text: "عايز أغسل إيدي", say: "عَايِزْ أَغْسِلْ إِيدِي", emoji: "🧼", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
-      { id: 8, text: "عايز أغير هدومي", say: "عَايِزْ أُغَيَّرْ هُدُومِي", emoji: "👕", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
+      { id: 1, text: "عايز أشرب", emoji: "💧", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
+      { id: 2, text: "عايز آكل", emoji: "🍽️", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
+      { id: 3, text: "عايز أنام", emoji: "🛏️", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
+      { id: 4, text: "عايز أروح الحمام", emoji: "🚽", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
+      { id: 5, text: "أنا تعبان", emoji: "🥱", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
+      { id: 6, text: "حاسس بوجع", emoji: "🩹", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
+      { id: 7, text: "عايز أغسل إيدي", emoji: "🧼", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
+      { id: 8, text: "عايز أغير هدومي", emoji: "👕", cat: "needs", bg: "bg-rose-50 border-rose-300 text-rose-900" },
 
-      { id: 9, text: "أنا مبسوط", say: "أَنَا مَبْسُوطْ", emoji: "😊", cat: "feelings", bg: "bg-amber-50 border-amber-300 text-amber-900" },
-      { id: 10, text: "أنا زعلان", say: "أَنَا زَعْلَانْ", emoji: "😢", cat: "feelings", bg: "bg-amber-50 border-amber-300 text-amber-900" },
-      { id: 11, text: "أنا خايف", say: "أَنَا خَايِفْ", emoji: "😨", cat: "feelings", bg: "bg-amber-50 border-amber-300 text-amber-900" },
-      { id: 12, text: "أنا متعصب", say: "أَنَا مِتْعَصَّبْ", emoji: "😠", cat: "feelings", bg: "bg-amber-50 border-amber-300 text-amber-900" },
-      { id: 13, text: "بحبك", say: "بَحِبَّكْ", emoji: "❤️", cat: "feelings", bg: "bg-amber-50 border-amber-300 text-amber-900" },
-      { id: 14, text: "زهقان", say: "زَهْقَانْ", emoji: "😐", cat: "feelings", bg: "bg-amber-50 border-amber-300 text-amber-900" },
+      { id: 9, text: "أنا مبسوط", emoji: "😊", cat: "feelings", bg: "bg-amber-50 border-amber-300 text-amber-900" },
+      { id: 10, text: "أنا زعلان", emoji: "😢", cat: "feelings", bg: "bg-amber-50 border-amber-300 text-amber-900" },
+      { id: 11, text: "أنا خايف", emoji: "😨", cat: "feelings", bg: "bg-amber-50 border-amber-300 text-amber-900" },
+      { id: 12, text: "أنا متعصب", emoji: "😠", cat: "feelings", bg: "bg-amber-50 border-amber-300 text-amber-900" },
+      { id: 13, text: "بحبك", emoji: "❤️", cat: "feelings", bg: "bg-amber-50 border-amber-300 text-amber-900" },
+      { id: 14, text: "زهقان", emoji: "😐", cat: "feelings", bg: "bg-amber-50 border-amber-300 text-amber-900" },
 
-      { id: 15, text: "عايز ألعب", say: "عَايِزْ أَلْعَبْ", emoji: "🧸", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
-      { id: 16, text: "عايز أتفرج على التلفزيون", say: "عَايِزْ أَتْفَرَّجْ عَلَى التِّلِفِزْيُونْ", emoji: "📺", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
-      { id: 17, text: "عايز أرسم", say: "عَايِزْ أَرْسِمْ", emoji: "🎨", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
-      { id: 18, text: "عايز أسمع مزيكا", say: "عَايِزْ أَسْمَعْ مُزِّيكَا", emoji: "🎵", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
-      { id: 19, text: "عايز أخرج", say: "عَايِزْ أَخْرُجْ", emoji: "🚪", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
-      { id: 20, text: "عايز أروح الجنينة", say: "عَايِزْ أَرُوحْ الجِنِينَهْ", emoji: "🌳", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
-      { id: 21, text: "عايز حضن", say: "عَايِزْ حُضْنْ", emoji: "🫂", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
+      { id: 15, text: "عايز ألعب", emoji: "🧸", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
+      { id: 16, text: "عايز أتفرج على التلفزيون", emoji: "📺", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
+      { id: 17, text: "عايز أرسم", emoji: "🎨", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
+      { id: 18, text: "عايز أسمع مزيكا", emoji: "🎵", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
+      { id: 19, text: "عايز أخرج", emoji: "🚪", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
+      { id: 20, text: "عايز أروح الجنينة", emoji: "🌳", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
+      { id: 21, text: "عايز حضن", emoji: "🫂", cat: "activities", bg: "bg-sky-50 border-sky-300 text-sky-900" },
 
-      { id: 22, text: "أيوه", say: "أَيْوَهْ", emoji: "👍", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
-      { id: 23, text: "لا", say: "لَا", emoji: "👎", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
-      { id: 24, text: "ساعدني لو سمحت", say: "سَاعِدْنِي لَوْ سَمَحْتْ", emoji: "🆘", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
-      { id: 25, text: "استنى شوية", say: "اِسْتَنَّى شُوَيَّهْ", emoji: "✋", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
-      { id: 26, text: "كفاية كده", say: "كِفَايَهْ كِدَهْ", emoji: "🛑", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
-      { id: 27, text: "تاني لو سمحت", say: "تَانِي لَوْ سَمَحْتْ", emoji: "🔁", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
-      { id: 28, text: "شكراً ليك", say: "شُكْرًا لِيكْ", emoji: "🙏", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
-      { id: 29, text: "عايز ماما", say: "عَايِزْ مَامَا", emoji: "👩", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
-      { id: 30, text: "عايز بابا", say: "عَايِزْ بَابَا", emoji: "👨", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" }
+      { id: 22, text: "أيوه", emoji: "👍", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
+      { id: 23, text: "لا", emoji: "👎", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
+      { id: 24, text: "ساعدني لو سمحت", emoji: "🆘", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
+      { id: 25, text: "استنى شوية", emoji: "✋", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
+      { id: 26, text: "كفاية كده", emoji: "🛑", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
+      { id: 27, text: "تاني لو سمحت", emoji: "🔁", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
+      { id: 28, text: "شكراً ليك", emoji: "🙏", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
+      { id: 29, text: "عايز ماما", emoji: "👩", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" },
+      { id: 30, text: "عايز بابا", emoji: "👨", cat: "social", bg: "bg-purple-50 border-purple-300 text-purple-900" }
     ];
 
-    // قاموس تشكيل تلقائي للنص اللي بتكتبه بإيدك
-    const egyDict = {
-      "عايز": "عَايِزْ", "عاوز": "عَايِزْ", "انا": "أَنَا", "أنا": "أَنَا",
-      "تعبان": "تَعْبَانْ", "زهقان": "زَهْقَانْ", "زعلان": "زَعْلَانْ",
-      "مبسوط": "مَبْسُوطْ", "خايف": "خَايِفْ", "جعان": "جَعَانْ",
-      "عطشان": "عَطْشَانْ", "نعسان": "نَعْسَانْ", "أشرب": "أَشْرَبْ",
-      "آكل": "آكُلْ", "أنام": "أَنَامْ", "أروح": "أَرُوحْ", "ألعب": "أَلْعَبْ",
-      "ماما": "مَامَا", "بابا": "بَابَا", "أيوه": "أَيْوَهْ", "ايوه": "أَيْوَهْ",
-      "لا": "لَا", "لو": "لَوْ", "سمحت": "سَمَحْتْ", "ليك": "لِيكْ",
-      "كده": "كِدَهْ", "تاني": "تَانِي", "شوية": "شُوَيَّهْ", "استنى": "اِسْتَنَّى",
-      "ساعدني": "سَاعِدْنِي", "بحبك": "بَحِبَّكْ", "الحمام": "الحَمَّامْ"
-    };
-
-    function addTashkeel(text) {
-      // لو النص مشكّل بالفعل، سيبه زي ما هو
-      if (/[\u064B-\u0652]/.test(text)) return text;
-      return text.split(/\s+/).map(w => egyDict[w] || w).join(' ');
-    }
-
     let sentenceList = [];
+    let currentAudioElement = null;
     window.currentUtterance = null;
 
     // تحديث شريط الحالة المرئي
@@ -150,129 +142,79 @@
       else bar.className += 'bg-slate-100 border border-slate-200 text-slate-700';
     }
 
-    // عنصر صوت واحد ثابت: بنفعّله عند أول لمسة فيفضل شغال بعد كده
-    const audioEl = new Audio();
-    const SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
-    let audioUnlocked = false;
-
-    function unlockAudio() {
-      if (audioUnlocked) return;
-      audioUnlocked = true;
-      try {
-        audioEl.src = SILENT_WAV;
-        const p = audioEl.play();
-        if (p && p.catch) p.catch(() => {});
-      } catch (e) {}
+    // تفعيل الصوت في متصفح الهاتف
+    document.getElementById('btnUnlock').addEventListener('click', () => {
+      document.getElementById('unlockModal').classList.add('hidden');
       if ('speechSynthesis' in window) {
-        try {
-          window.speechSynthesis.resume();
-          const warm = new SpeechSynthesisUtterance(' ');
-          warm.volume = 0;
-          window.speechSynthesis.speak(warm);
-        } catch (e) {}
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.resume();
       }
-      ['pointerdown', 'touchstart', 'click', 'keydown'].forEach(ev =>
-        document.removeEventListener(ev, unlockAudio, true));
-    }
-    ['pointerdown', 'touchstart', 'click', 'keydown'].forEach(ev =>
-      document.addEventListener(ev, unlockAudio, true));
+      speak("أهلاً بيك في تطبيق كلمني");
+    });
 
-    // المحرك الصوتي: صوت الجهاز أولاً دايماً، والسحابي احتياطي بس
-    let speakTimer = null;
-    let lastSpeechError = '';
-
-    function updateVoiceInfo() {
-      const el = document.getElementById('voiceInfo');
-      if (!el) return;
-      if (!('speechSynthesis' in window)) {
-        el.textContent = 'تشخيص: المتصفح لا يدعم النطق (speechSynthesis)';
-        return;
-      }
-      const v = window.speechSynthesis.getVoices() || [];
-      const ar = v.filter(x => x.lang && x.lang.toLowerCase().startsWith('ar'));
-      el.textContent = `تشخيص: أصوات الجهاز ${v.length} | عربي ${ar.length}` +
-        (ar.length ? ` (${ar.map(x => x.lang).join(', ')})` : '') +
-        (lastSpeechError ? ` | آخر خطأ: ${lastSpeechError}` : '');
-    }
-
+    // المحرك الصوتي الذكي (مُعدل لدعم اللهجة المصرية مع بديل سحابي دقيق)
     function speak(text) {
       if (!text || !text.trim()) return;
 
-      try { audioEl.pause(); } catch (e) {}
-      clearTimeout(speakTimer);
-
-      if (!('speechSynthesis' in window)) {
-        fallbackAudioStream(text);
-        return;
+      if (currentAudioElement) {
+        currentAudioElement.pause();
+        currentAudioElement.currentTime = 0;
       }
-
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.resume();
-      setStatus('جارٍ النطق...', 'speaking');
-
-      const voices = window.speechSynthesis.getVoices() || [];
-      const voice = voices.find(v => /^ar[-_]EG$/i.test(v.lang))
-                 || voices.find(v => v.lang && v.lang.toLowerCase().startsWith('ar'));
-
-      const utter = new SpeechSynthesisUtterance(text);
-      if (voice) {
-        utter.voice = voice;
-        utter.lang = voice.lang;
-      } else {
-        utter.lang = 'ar-EG'; // كروم بيختار محرك الجهاز لوحده
-      }
-      utter.rate = 0.9;
-      window.currentUtterance = utter;
-
-      let started = false;
-      let fellBack = false;
-      const goFallback = () => {
-        if (fellBack) return;
-        fellBack = true;
-        clearTimeout(speakTimer);
+      if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
-        fallbackAudioStream(text);
-      };
+        window.speechSynthesis.resume();
+      }
 
-      utter.onstart = () => {
-        started = true;
-        clearTimeout(speakTimer);
-        setStatus('النطق عبر صوت الجهاز 🔊', 'speaking');
-      };
-      utter.onend = () => setStatus('تم النطق بنجاح ✅', 'success');
-      utter.onerror = (e) => {
-        if (e && (e.error === 'interrupted' || e.error === 'canceled')) return;
-        lastSpeechError = (e && e.error) || 'unknown';
-        updateVoiceInfo();
-        goFallback();
-      };
+      setStatus(`جارٍ نطق: "${text}"...`, 'speaking');
 
-      window.speechSynthesis.speak(utter);
+      let egyptianVoice = null;
+      if ('speechSynthesis' in window) {
+        const voices = window.speechSynthesis.getVoices();
+        // البحث عن صوت خاص بمصر (ar-EG) 
+        egyptianVoice = voices.find(v => v.lang === 'ar-EG') || voices.find(v => v.lang.startsWith('ar'));
+      }
 
-      // لو الجهاز ماردش في 3 ثواني، جرّب الصوت السحابي
-      speakTimer = setTimeout(() => { if (!started) { lastSpeechError = 'no-response'; updateVoiceInfo(); goFallback(); } }, 3000);
+      if (egyptianVoice) {
+        try {
+          const utter = new SpeechSynthesisUtterance(text);
+          utter.voice = egyptianVoice;
+          utter.lang = 'ar-EG';
+          utter.rate = 0.9; // سرعة هادئة وواضحة
+          window.currentUtterance = utter;
+
+          utter.onstart = () => setStatus(`النطق عبر صوت الجهاز 🔊: "${text}"`, 'speaking');
+          utter.onend = () => setStatus(`تم النطق بنجاح ✅`, 'success');
+          utter.onerror = () => fallbackAudioStream(text);
+
+          window.speechSynthesis.speak(utter);
+          return;
+        } catch (e) {
+          console.warn("تعذر استخدام محرك الجهاز، جارٍ الانتقال للصوت البديل...", e);
+        }
+      }
+
+      fallbackAudioStream(text);
     }
 
-    // الصوت البديل السحابي (Google TTS)
+    // الصوت البديل السحابي (Google TTS يدعم اللهجة العامية بشكل ممتاز جداً)
     function fallbackAudioStream(text) {
-      setStatus('جارٍ النطق عبر الصوت السحابي 🌐', 'speaking');
-
+      setStatus(`جارٍ النطق عبر الصوت السحابي 🌐: "${text}"`, 'speaking');
+      
       const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ar&q=${encodeURIComponent(text)}`;
-      audioEl.onended = () => setStatus('تم النطق بنجاح ✅', 'success');
-      audioEl.onerror = () => setStatus('الجهاز مفيهوش صوت عربي والصوت السحابي متحجب. ثبّت صوت العربية (مصر) من إعدادات تحويل النص إلى كلام.', 'error');
-      audioEl.src = audioUrl;
+      currentAudioElement = new Audio(audioUrl);
 
-      const p = audioEl.play();
-      if (p && p.catch) {
-        p.catch(err => {
-          console.error("Playback error:", err);
-          if (err.name === 'NotAllowedError') {
-            setStatus('المتصفح منع الصوت. اضغط على البطاقة مرة تانية.', 'error');
-          } else {
-            setStatus(`الجهاز مفيهوش صوت عربي والصوت السحابي متحجب (${err.name}). ثبّت صوت العربية (مصر) من إعدادات تحويل النص إلى كلام.`, 'error');
-          }
-        });
-      }
+      currentAudioElement.onended = () => {
+        setStatus(`تم النطق بنجاح ✅`, 'success');
+      };
+
+      currentAudioElement.onerror = () => {
+        setStatus(`تعذر النطق. يرجى التأكد من الاتصال بالإنترنت.`, 'error');
+      };
+
+      currentAudioElement.play().catch(err => {
+        console.error("Playback error:", err);
+        setStatus(`يرجى النقر على الشاشة أولاً لتفعيل الصوت.`, 'error');
+      });
     }
 
     // بناء شبكة البطاقات
@@ -284,13 +226,13 @@
 
       filtered.forEach(item => {
         const btn = document.createElement('button');
-        btn.className = `active-card flex flex-col items-center justify-center p-4 rounded-3xl border-2 shadow-md transition-all duration-150 min-h-[140px] ${item.bg}`;
+        btn.className = `active-card flex flex-col items-center justify-center p-4 rounded-3xl border-3 shadow-md transition-all duration-150 min-h-[140px] ${item.bg}`;
         btn.innerHTML = `
           <span class="text-5xl mb-2 filter drop-shadow-sm pointer-events-none">${item.emoji}</span>
           <span class="font-black text-lg text-center leading-tight pointer-events-none">${item.text}</span>
         `;
         btn.onclick = () => {
-          speak(item.say || item.text);
+          speak(item.text);
           addToSentence(item);
         };
         container.appendChild(btn);
@@ -318,7 +260,7 @@
 
     function speakSentence() {
       if (sentenceList.length === 0) return;
-      const fullSentence = sentenceList.map(c => c.say || c.text).join(' ');
+      const fullSentence = sentenceList.map(c => c.text).join('، ');
       speak(fullSentence);
     }
 
@@ -331,7 +273,7 @@
     function speakCustomInput() {
       const input = document.getElementById('customInput');
       const val = input.value.trim();
-      if (val) speak(addTashkeel(val));
+      if (val) speak(val);
     }
 
     function clearInput() {
@@ -343,18 +285,18 @@
     });
 
     // تبديل الفئات
-    function filterCards(cat, el) {
+    function filterCards(cat) {
       document.querySelectorAll('.cat-btn').forEach(btn => {
         btn.classList.remove('bg-slate-800', 'text-white');
         btn.classList.add('bg-white');
       });
-      el.classList.remove('bg-white');
-      el.classList.add('bg-slate-800', 'text-white');
+      event.target.classList.remove('bg-white');
+      event.target.classList.add('bg-slate-800', 'text-white');
       renderCards(cat);
     }
 
     function testSpeech() {
-      speak("نِظَامْ الصَّوْتْ شَغَّالْ وِزَيِّ الفُلْ، تِقْدَرْ تِسْتَخْدِمْ التَّطْبِيقْ دِلْوَقْتِي");
+      speak("نظام الصوت شغال وزي الفل، تقدر تستخدم التطبيق دلوقتي");
     }
 
     renderCards();
@@ -362,11 +304,8 @@
     if ('speechSynthesis' in window) {
       window.speechSynthesis.onvoiceschanged = () => {
         window.speechSynthesis.getVoices();
-        updateVoiceInfo();
       };
     }
-    updateVoiceInfo();
-    setTimeout(updateVoiceInfo, 1500);
   </script>
 </body>
-</html>
+</html> شوف ده عشان هطلب منك حاجه
