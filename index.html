@@ -35,6 +35,7 @@
     <div id="statusBar" class="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs py-1 px-3 rounded-lg text-center font-bold">
       جاهز للنطق... اضغط على أي بطاقة
     </div>
+    <div id="voiceInfo" class="text-[11px] text-slate-500 text-center mt-1 font-bold" dir="rtl"></div>
   </header>
 
   <!-- شريط الجملة المركبة -->
@@ -176,47 +177,80 @@
     ['pointerdown', 'touchstart', 'click', 'keydown'].forEach(ev =>
       document.addEventListener(ev, unlockAudio, true));
 
-    // المحرك الصوتي
+    // المحرك الصوتي: صوت الجهاز أولاً دايماً، والسحابي احتياطي بس
+    let speakTimer = null;
+    let lastSpeechError = '';
+
+    function updateVoiceInfo() {
+      const el = document.getElementById('voiceInfo');
+      if (!el) return;
+      if (!('speechSynthesis' in window)) {
+        el.textContent = 'تشخيص: المتصفح لا يدعم النطق (speechSynthesis)';
+        return;
+      }
+      const v = window.speechSynthesis.getVoices() || [];
+      const ar = v.filter(x => x.lang && x.lang.toLowerCase().startsWith('ar'));
+      el.textContent = `تشخيص: أصوات الجهاز ${v.length} | عربي ${ar.length}` +
+        (ar.length ? ` (${ar.map(x => x.lang).join(', ')})` : '') +
+        (lastSpeechError ? ` | آخر خطأ: ${lastSpeechError}` : '');
+    }
+
     function speak(text) {
       if (!text || !text.trim()) return;
 
       try { audioEl.pause(); } catch (e) {}
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.resume();
+      clearTimeout(speakTimer);
+
+      if (!('speechSynthesis' in window)) {
+        fallbackAudioStream(text);
+        return;
       }
 
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.resume();
       setStatus('جارٍ النطق...', 'speaking');
 
-      let egyptianVoice = null;
-      if ('speechSynthesis' in window) {
-        const voices = window.speechSynthesis.getVoices();
-        egyptianVoice = voices.find(v => v.lang === 'ar-EG' || v.lang === 'ar_EG') || voices.find(v => v.lang.startsWith('ar'));
+      const voices = window.speechSynthesis.getVoices() || [];
+      const voice = voices.find(v => /^ar[-_]EG$/i.test(v.lang))
+                 || voices.find(v => v.lang && v.lang.toLowerCase().startsWith('ar'));
+
+      const utter = new SpeechSynthesisUtterance(text);
+      if (voice) {
+        utter.voice = voice;
+        utter.lang = voice.lang;
+      } else {
+        utter.lang = 'ar-EG'; // كروم بيختار محرك الجهاز لوحده
       }
+      utter.rate = 0.9;
+      window.currentUtterance = utter;
 
-      if (egyptianVoice) {
-        try {
-          const utter = new SpeechSynthesisUtterance(text);
-          utter.voice = egyptianVoice;
-          utter.lang = egyptianVoice.lang;
-          utter.rate = 0.9;
-          window.currentUtterance = utter;
+      let started = false;
+      let fellBack = false;
+      const goFallback = () => {
+        if (fellBack) return;
+        fellBack = true;
+        clearTimeout(speakTimer);
+        window.speechSynthesis.cancel();
+        fallbackAudioStream(text);
+      };
 
-          utter.onstart = () => setStatus('النطق عبر صوت الجهاز 🔊', 'speaking');
-          utter.onend = () => setStatus('تم النطق بنجاح ✅', 'success');
-          utter.onerror = (e) => {
-            if (e && (e.error === 'interrupted' || e.error === 'canceled')) return;
-            fallbackAudioStream(text);
-          };
+      utter.onstart = () => {
+        started = true;
+        clearTimeout(speakTimer);
+        setStatus('النطق عبر صوت الجهاز 🔊', 'speaking');
+      };
+      utter.onend = () => setStatus('تم النطق بنجاح ✅', 'success');
+      utter.onerror = (e) => {
+        if (e && (e.error === 'interrupted' || e.error === 'canceled')) return;
+        lastSpeechError = (e && e.error) || 'unknown';
+        updateVoiceInfo();
+        goFallback();
+      };
 
-          window.speechSynthesis.speak(utter);
-          return;
-        } catch (e) {
-          console.warn("تعذر استخدام محرك الجهاز، جارٍ الانتقال للصوت البديل...", e);
-        }
-      }
+      window.speechSynthesis.speak(utter);
 
-      fallbackAudioStream(text);
+      // لو الجهاز ماردش في 3 ثواني، جرّب الصوت السحابي
+      speakTimer = setTimeout(() => { if (!started) { lastSpeechError = 'no-response'; updateVoiceInfo(); goFallback(); } }, 3000);
     }
 
     // الصوت البديل السحابي (Google TTS)
@@ -225,7 +259,7 @@
 
       const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ar&q=${encodeURIComponent(text)}`;
       audioEl.onended = () => setStatus('تم النطق بنجاح ✅', 'success');
-      audioEl.onerror = () => setStatus('تعذر تحميل الصوت من الإنترنت. جرّب فتح الملف في متصفح Chrome مباشرة.', 'error');
+      audioEl.onerror = () => setStatus('الجهاز مفيهوش صوت عربي والصوت السحابي متحجب. ثبّت صوت العربية (مصر) من إعدادات تحويل النص إلى كلام.', 'error');
       audioEl.src = audioUrl;
 
       const p = audioEl.play();
@@ -235,7 +269,7 @@
           if (err.name === 'NotAllowedError') {
             setStatus('المتصفح منع الصوت. اضغط على البطاقة مرة تانية.', 'error');
           } else {
-            setStatus(`تعذر تشغيل الصوت (${err.name}). افتح الملف في Chrome مباشرة.`, 'error');
+            setStatus(`الجهاز مفيهوش صوت عربي والصوت السحابي متحجب (${err.name}). ثبّت صوت العربية (مصر) من إعدادات تحويل النص إلى كلام.`, 'error');
           }
         });
       }
@@ -328,8 +362,11 @@
     if ('speechSynthesis' in window) {
       window.speechSynthesis.onvoiceschanged = () => {
         window.speechSynthesis.getVoices();
+        updateVoiceInfo();
       };
     }
+    updateVoiceInfo();
+    setTimeout(updateVoiceInfo, 1500);
   </script>
 </body>
 </html>
