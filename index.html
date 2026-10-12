@@ -136,7 +136,6 @@
     }
 
     let sentenceList = [];
-    let currentAudioElement = null;
     window.currentUtterance = null;
 
     // تحديث شريط الحالة المرئي
@@ -150,23 +149,38 @@
       else bar.className += 'bg-slate-100 border border-slate-200 text-slate-700';
     }
 
-    // تفعيل الصوت تلقائياً عند أول لمسة في أي مكان
+    // عنصر صوت واحد ثابت: بنفعّله عند أول لمسة فيفضل شغال بعد كده
+    const audioEl = new Audio();
+    const SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+    let audioUnlocked = false;
+
     function unlockAudio() {
+      if (audioUnlocked) return;
+      audioUnlocked = true;
+      try {
+        audioEl.src = SILENT_WAV;
+        const p = audioEl.play();
+        if (p && p.catch) p.catch(() => {});
+      } catch (e) {}
       if ('speechSynthesis' in window) {
-        window.speechSynthesis.resume();
+        try {
+          window.speechSynthesis.resume();
+          const warm = new SpeechSynthesisUtterance(' ');
+          warm.volume = 0;
+          window.speechSynthesis.speak(warm);
+        } catch (e) {}
       }
-      document.removeEventListener('pointerdown', unlockAudio);
+      ['pointerdown', 'touchstart', 'click', 'keydown'].forEach(ev =>
+        document.removeEventListener(ev, unlockAudio, true));
     }
-    document.addEventListener('pointerdown', unlockAudio);
+    ['pointerdown', 'touchstart', 'click', 'keydown'].forEach(ev =>
+      document.addEventListener(ev, unlockAudio, true));
 
     // المحرك الصوتي
     function speak(text) {
       if (!text || !text.trim()) return;
 
-      if (currentAudioElement) {
-        currentAudioElement.pause();
-        currentAudioElement.currentTime = 0;
-      }
+      try { audioEl.pause(); } catch (e) {}
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
         window.speechSynthesis.resume();
@@ -190,7 +204,10 @@
 
           utter.onstart = () => setStatus('النطق عبر صوت الجهاز 🔊', 'speaking');
           utter.onend = () => setStatus('تم النطق بنجاح ✅', 'success');
-          utter.onerror = () => fallbackAudioStream(text);
+          utter.onerror = (e) => {
+            if (e && (e.error === 'interrupted' || e.error === 'canceled')) return;
+            fallbackAudioStream(text);
+          };
 
           window.speechSynthesis.speak(utter);
           return;
@@ -207,20 +224,21 @@
       setStatus('جارٍ النطق عبر الصوت السحابي 🌐', 'speaking');
 
       const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ar&q=${encodeURIComponent(text)}`;
-      currentAudioElement = new Audio(audioUrl);
+      audioEl.onended = () => setStatus('تم النطق بنجاح ✅', 'success');
+      audioEl.onerror = () => setStatus('تعذر تحميل الصوت من الإنترنت. جرّب فتح الملف في متصفح Chrome مباشرة.', 'error');
+      audioEl.src = audioUrl;
 
-      currentAudioElement.onended = () => {
-        setStatus('تم النطق بنجاح ✅', 'success');
-      };
-
-      currentAudioElement.onerror = () => {
-        setStatus('تعذر النطق. يرجى التأكد من الاتصال بالإنترنت.', 'error');
-      };
-
-      currentAudioElement.play().catch(err => {
-        console.error("Playback error:", err);
-        setStatus('يرجى النقر على الشاشة أولاً لتفعيل الصوت.', 'error');
-      });
+      const p = audioEl.play();
+      if (p && p.catch) {
+        p.catch(err => {
+          console.error("Playback error:", err);
+          if (err.name === 'NotAllowedError') {
+            setStatus('المتصفح منع الصوت. اضغط على البطاقة مرة تانية.', 'error');
+          } else {
+            setStatus(`تعذر تشغيل الصوت (${err.name}). افتح الملف في Chrome مباشرة.`, 'error');
+          }
+        });
+      }
     }
 
     // بناء شبكة البطاقات
